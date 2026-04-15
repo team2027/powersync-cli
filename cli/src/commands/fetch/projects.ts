@@ -61,26 +61,30 @@ export default class FetchProjects extends Command {
     const managementClient = createCloudClient();
 
     const rows: ProjectRow[] = [];
-    // In JSON mode, progress must not pollute stdout; route spinner to stderr and skip when not TTY.
+    // In JSON mode, skip the spinner entirely so stderr stays clean for strict machine-readable output.
     const jsonMode = flags.output === 'json';
-    const spinner = ora({
-      discardStdin: false,
-      isEnabled: !jsonMode && process.stderr.isTTY,
-      stream: process.stderr,
-      text: 'Fetching projects...'
-    });
+    const spinner =
+      !jsonMode && process.stderr.isTTY
+        ? ora({
+            discardStdin: false,
+            stream: process.stderr,
+            text: 'Fetching projects...'
+          })
+        : undefined;
 
     let spinnerStarted = false;
     try {
       for await (const orgPage of accountsClient.listOrganizations.paginate({ id: flags['org-id'] })) {
         const { objects: organizations, total: totalOrgs } = orgPage;
-        if (!spinnerStarted && totalOrgs > 0) {
+        if (spinner && !spinnerStarted && totalOrgs > 0) {
           spinner.start();
           spinnerStarted = true;
         }
 
         for (const organization of organizations) {
-          spinner.text = `Fetching projects in ${organization.label}...`;
+          if (spinner) {
+            spinner.text = `Fetching projects in ${organization.label}...`;
+          }
           for await (const projectPage of accountsClient.listProjects.paginate({
             org_id: organization.id
           })) {
@@ -106,7 +110,7 @@ export default class FetchProjects extends Command {
         }
       }
     } finally {
-      if (spinnerStarted) {
+      if (spinner && spinnerStarted) {
         spinner.stop();
       }
     }
