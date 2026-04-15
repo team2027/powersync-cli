@@ -10,6 +10,8 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { getDefaultOrgId } from '../clients/AccountsHubClientSDKClient.js';
+import { authTokenFlag } from '../clients/auth-token-flag.js';
+import { setCliTokenOverride } from '../clients/cli-token-override.js';
 import { createCloudClient } from '../clients/create-cloud-client.js';
 import { ensureServiceTypeMatches, ServiceType } from '../utils/ensure-service-type.js';
 import { env } from '../utils/env.js';
@@ -57,6 +59,7 @@ export abstract class CloudInstanceCommand extends InstanceCommand {
      * Instance ID, org ID, and project ID are resolved in order: flags → cli.yaml → env (INSTANCE_ID, ORG_ID, PROJECT_ID).
      */
     ...InstanceCommand.baseFlags,
+    ...authTokenFlag,
     'instance-id': Flags.string({
       dependsOn: ['project-id'],
       description: 'PowerSync Cloud instance ID. Manually passed if the current context has not been linked.',
@@ -122,6 +125,8 @@ export abstract class CloudInstanceCommand extends InstanceCommand {
     flags: CloudInstanceCommandFlags,
     options: EnsureConfigOptions = DEFAULT_ENSURE_CONFIG_OPTIONS
   ): Promise<CloudProject> {
+    // Apply --token override before any authenticated API call (getDefaultOrgId below, plus subclass calls).
+    setCliTokenOverride(flags.token);
     const resolvedOptions = {
       ...DEFAULT_ENSURE_CONFIG_OPTIONS,
       // Keep this order so call-site options override defaults.

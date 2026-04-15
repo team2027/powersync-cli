@@ -1,10 +1,12 @@
 import { Command, Flags, ux } from '@oclif/core';
 import {
+  authTokenFlag,
   CLI_FILENAME,
   CommandHelpGroup,
   createAccountsHubClient,
   createCloudClient,
-  parseYamlFile
+  parseYamlFile,
+  setCliTokenOverride
 } from '@powersync/cli-core';
 import { CLIConfig } from '@powersync/cli-schemas';
 import sortBy from 'lodash/sortBy.js';
@@ -48,6 +50,7 @@ export default class FetchInstances extends Command {
     '<%= config.bin %> <%= command.id %> --project-id=<id> --output=json'
   ];
   static flags = {
+    ...authTokenFlag,
     'org-id': Flags.string({
       description: 'Optional Organization ID. Defaults to all organizations.',
       required: false
@@ -174,6 +177,8 @@ export default class FetchInstances extends Command {
 
   async run(): Promise<void> {
     const { flags } = await this.parse(FetchInstances);
+
+    setCliTokenOverride(flags.token);
 
     this.log(''); // Add spacing
 

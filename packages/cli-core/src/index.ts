@@ -4,7 +4,9 @@
  */
 export * from './api/validate-sync-config.js';
 export * from './clients/AccountsHubClientSDKClient.js';
+export * from './clients/auth-token-flag.js';
 export * from './clients/cli-client-headers.js';
+export * from './clients/cli-token-override.js';
 export * from './clients/create-cloud-client.js';
 export * from './clients/create-self-hosted-client.js';
 export * from './command-types/CloudInstanceCommand.js';
