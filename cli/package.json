@@ -91,7 +91,7 @@
         "description": "[Cloud only] Deploy local config changes to the Cloud instance. Run \"powersync deploy --help\" to list subcommands."
       },
       "fetch": {
-        "description": "Inspect Cloud instances and configuration (instances, config, status). Run \"powersync fetch --help\" to list subcommands."
+        "description": "Inspect Cloud projects, instances, and configuration (projects, instances, config, status). Run \"powersync fetch --help\" to list subcommands."
       },
       "generate": {
         "description": "Generate client artifacts from instance/config data (schema, token). Run \"powersync generate --help\" to list subcommands."
