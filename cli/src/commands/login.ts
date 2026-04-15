@@ -1,5 +1,5 @@
 import { confirm, password } from '@inquirer/prompts';
-import { ux } from '@oclif/core';
+import { Flags, ux } from '@oclif/core';
 import { CommandHelpGroup, createAccountsHubClient, PowerSyncCommand, Services } from '@powersync/cli-core';
 
 import { startPATLoginServer } from '../api/login-server.js';
@@ -8,13 +8,51 @@ export default class Login extends PowerSyncCommand {
   static commandHelpGroup = CommandHelpGroup.AUTHENTICATION;
   static description =
     'Store a PowerSync auth token (PAT) in secure storage so later Cloud commands run without passing a token. If secure storage is unavailable, login can optionally store it in a local config file. Use PS_ADMIN_TOKEN env var for CI or scripts instead.';
-  static examples = ['<%= config.bin %> <%= command.id %>'];
+  static examples = [
+    '<%= config.bin %> <%= command.id %>',
+    '<%= config.bin %> <%= command.id %> --token=jpt_...'
+  ];
+  static flags = {
+    'force-insecure': Flags.boolean({
+      default: false,
+      description:
+        'When combined with --token on a platform without secure storage, persist the token in plaintext at the local config path instead of erroring.'
+    }),
+    token: Flags.string({
+      description:
+        'Store this token non-interactively, skipping all prompts (browser flow, overwrite confirmation, password input). Intended for CI and AI agents.',
+      required: false
+    })
+  };
   static summary = 'Store auth token for Cloud commands.';
 
   async run(): Promise<void> {
-    await this.parse(Login);
+    const { flags } = await this.parse(Login);
 
     const { authentication, storage } = Services;
+
+    if (flags.token !== undefined) {
+      const token = flags.token.trim();
+      if (!token) {
+        this.styledError({ message: 'Token is required.' });
+      }
+
+      if (!storage.capabilities.supportsSecureStorage && !flags['force-insecure']) {
+        this.styledError({
+          message: `Secure storage is unavailable on this platform. Re-run with --force-insecure to persist the token in plaintext at ${storage.insecureStoragePath}, or set the ${ux.colorize('blue', 'PS_ADMIN_TOKEN')} environment variable to authenticate without persisting.`
+        });
+      }
+
+      const existing = await authentication.getToken();
+      if (existing) {
+        await authentication.deleteToken();
+      }
+
+      await authentication.setToken(token);
+      this.log('Token stored.');
+      return;
+    }
+
     const shouldUseInsecureStorage =
       !storage.capabilities.supportsSecureStorage &&
       (await confirm({

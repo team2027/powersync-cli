@@ -76,6 +76,67 @@ describe('login', () => {
     return captureOutput(() => cmd.run());
   }
 
+  function runLoginWithArgs(argv: string[]) {
+    const cmd = new LoginCommand(argv, oclifConfig);
+    return captureOutput(() => cmd.run());
+  }
+
+  it('stores token non-interactively when --token is provided', async () => {
+    const result = await runLoginWithArgs(['--token', '  jpt_abc123  ']);
+
+    expect(result.error).toBeUndefined();
+    expect(authentication.setToken).toHaveBeenCalledWith('jpt_abc123');
+    expect(mockedConfirm).not.toHaveBeenCalled();
+    expect(mockedPassword).not.toHaveBeenCalled();
+    expect(mockedStartPATLoginServer).not.toHaveBeenCalled();
+    expect(result.stdout).toContain('Token stored.');
+  });
+
+  it('overwrites existing token silently when --token is provided', async () => {
+    authentication.getToken.mockResolvedValueOnce('existing-token');
+    const result = await runLoginWithArgs(['--token', 'new-token']);
+
+    expect(result.error).toBeUndefined();
+    expect(authentication.deleteToken).toHaveBeenCalledTimes(1);
+    expect(authentication.setToken).toHaveBeenCalledWith('new-token');
+    expect(mockedConfirm).not.toHaveBeenCalled();
+  });
+
+  it('errors when --token is provided but secure storage is unavailable and --force-insecure is not set', async () => {
+    Services.storage = {
+      capabilities: { supportsSecureStorage: false },
+      insecureStoragePath: '/tmp/powersync-config.json'
+    } as unknown as StorageImpl;
+
+    const result = await runLoginWithArgs(['--token', 'abc']);
+
+    expect(result.error).toBeDefined();
+    expect(result.error?.message).toContain('Secure storage is unavailable');
+    expect(result.error?.message).toContain('PS_ADMIN_TOKEN');
+    expect(authentication.setToken).not.toHaveBeenCalled();
+  });
+
+  it('stores token in insecure storage when --token and --force-insecure are provided', async () => {
+    Services.storage = {
+      capabilities: { supportsSecureStorage: false },
+      insecureStoragePath: '/tmp/powersync-config.json'
+    } as unknown as StorageImpl;
+
+    const result = await runLoginWithArgs(['--token', 'abc', '--force-insecure']);
+
+    expect(result.error).toBeUndefined();
+    expect(authentication.setToken).toHaveBeenCalledWith('abc');
+    expect(result.stdout).toContain('Token stored.');
+  });
+
+  it('errors when --token is empty/whitespace', async () => {
+    const result = await runLoginWithArgs(['--token', '   ']);
+
+    expect(result.error).toBeDefined();
+    expect(result.error?.message).toContain('Token is required.');
+    expect(authentication.setToken).not.toHaveBeenCalled();
+  });
+
   it('stores a valid token from prompt when browser flow is declined', async () => {
     mockedConfirm.mockResolvedValueOnce(true); // openBrowser
     mockedPassword.mockImplementationOnce(() => Object.assign(Promise.resolve('test-token'), { cancel: vi.fn() }));
